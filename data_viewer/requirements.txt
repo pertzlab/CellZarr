@@ -1,0 +1,9 @@
+napari
+magicgui
+ome-zarr
+pandas
+PyQt5
+numpy
+scikit-image
+tifffile
+zarr

@@ -1,0 +1,36 @@
+[project]
+name = "cellzarr"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.10, <=3.11"
+dependencies = [
+    "pandas",
+    "scipy",
+    "nd2", 
+    "scikit-image",
+    "matplotlib",
+    "tifffile",
+    "zarr",
+    "ome-zarr",
+    "dask",
+    "natsort",
+    "trackpy",
+    "edt",
+    "napari",
+    "PySide2",
+    "qtpy",
+    "magicgui",
+    "ipykernel",
+    "jupyterlab",
+    "ipywidgets",
+    "distributed",
+    "dask-jobqueue",
+    "ultrack",
+    "stardist",
+    "pyarrow",
+    "csbdeep",
+    "tensorflow-cpu",
+    "numpy<2.0",
+    "tensorflow-io-gcs-filesystem == 0.31.0"
+]
