@@ -14,7 +14,7 @@
 #   5. Output and error logs are written to ./logs/.
 #
 # REQUIREMENTS:
-#   - The 'ultrack' conda environment must be available and contain all dependencies.
+#   - uv must be available.
 #   - The Python script and data must be accessible on the compute nodes.
 ############################################################
 
@@ -29,7 +29,5 @@
 #SBATCH --error=./logs/slurm-%A_%a.err
 
 
-BASE_PATH="."
-source activate ultrack
 cd $BASE_PATH
-python 04_Cell_Tracking_ultrack.py ${SLURM_ARRAY_TASK_ID}
+uv run 04_Cell_Tracking_ultrack.py ${SLURM_ARRAY_TASK_ID}

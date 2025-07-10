@@ -1,3 +1,14 @@
+# /// script
+# requires-python = "<=3.11"
+# dependencies = [
+#   "ultrack",
+#   "ome-zarr",
+#   "zarr",
+#   "higra",
+#   "gurobipy",
+#   "natsort",
+# ]
+# ///
 """
 Batch Cell Tracking Script for All FOVs using Ultrack
 ====================================================

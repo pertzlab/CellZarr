@@ -1,3 +1,14 @@
+# /// script
+# requires-python = "<=3.11"
+# dependencies = [
+#   "ultrack",
+#   "ome-zarr",
+#   "zarr",
+#   "higra",
+#   "gurobipy",
+#   "natsort",
+# ]
+# ///
 """
 Cell Tracking Script using Ultrack
 ==================================
@@ -54,7 +65,14 @@ def main(fov_i: int):
     if "tracked" in labels_list:
         print(f"FOV {fov_i} already tracked")
         return
-    i_nucleus_label = labels_list.index("labels") + 2
+    if "labels" in labels_list:
+        i_nucleus_label = labels_list.index("labels") + 2
+    elif "nucleus" in labels_list:
+        i_nucleus_label = labels_list.index("nucleus") + 2
+    else:
+        raise ValueError(
+            f"FOV {fov_i} does not contain a 'labels' or 'nucleus' label. Available labels: {labels_list}"
+        )
     masks = nodes[i_nucleus_label].data[0].compute()
     Y_dim = masks.shape[1]
     X_dim = masks.shape[2]

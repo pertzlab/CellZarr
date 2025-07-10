@@ -1,13 +1,11 @@
 # /// script
 # dependencies = [
-#   "napari",
+#   "napari[all]",
 #   "pandas",
 #   "magicgui",
 #   "ome-zarr",
-#   "qtpy",
-#   "PyQt5",
 # ]
-# python = "3.11"
+# python = "3.12"
 # ///
 """
 Napari Data Viewer for Stem Cell Project OME-Zarr Data
@@ -41,40 +39,78 @@ from qtpy.QtWidgets import QLabel, QSizePolicy
 UPPER_QUANTILE = 0.95  # Upper quantile for distance clipping
 LOWER_QUANTILE = 0.05  # Lower quantile for distance clipping
 
+
 # --- Parse command-line arguments for base path ---
-def get_base_path():
-    parser = argparse.ArgumentParser(description="Napari Data Viewer for Stem Cell Project OME-Zarr Data")
+def get_base_path_and_experiment():
+    parser = argparse.ArgumentParser(
+        description="Napari Data Viewer for Stem Cell Project OME-Zarr Data"
+    )
     parser.add_argument(
-        "--base-path",
+        "base_path",
         type=str,
+        nargs="?",
         default=".",
         help="Base path to the stem cell project data (default: current directory)",
     )
+    parser.add_argument(
+        "--data_analysed",
+        type=str,
+        default=None,
+        help="Direct path to Analysed_Data or Analysed_Data2 folder containing FOVs. Overrides base_path if set.",
+    )
     args, _ = parser.parse_known_args()
-    return args.base_path
+    if args.data_analysed:
+        analysed_path = os.path.abspath(args.data_analysed)
+        experiment = os.path.basename(os.path.dirname(analysed_path))
+        return (
+            os.path.dirname(os.path.dirname(analysed_path)),
+            experiment,
+            analysed_path,
+        )
+    else:
+        base_path = os.path.abspath(args.base_path)
+        experiment = os.path.basename(base_path)
+        parent_path = os.path.dirname(base_path)
+        return parent_path, experiment, None
 
-BASE_PATH_STEM_CELL = get_base_path()
+
+BASE_PATH_STEM_CELL, DEFAULT_EXPERIMENT, ANALYSED_DATA_PATH = (
+    get_base_path_and_experiment()
+)
 
 
 def find_subfolders_with_analysed_data(directory):
     """
-    Find all subfolders in the given directory that contain analyzed data.
-    
+    Find all experiment folders that contain FOV folders directly or in Analysed_Data/Analysed_Data2.
+
     Args:
         directory (str): Path to the directory to search
-        
+
     Returns:
-        list: List of subfolder paths that contain analyzed data
+        list: List of experiment folder paths that contain FOV data
     """
     result = []
     try:
         for subfolder in os.listdir(directory):
             subfolder_path = os.path.join(directory, subfolder)
-            if os.path.isdir(subfolder_path):
-                # Check if this is a valid analyzed data folder
-                analysed_data_folder = subfolder_path
-                if os.path.isdir(analysed_data_folder):
-                    result.append(subfolder_path)
+            if not os.path.isdir(subfolder_path):
+                continue
+            # Check for FOV folders directly in experiment
+            has_fov = any(
+                os.path.isdir(os.path.join(subfolder_path, f)) and f.startswith("FOV_")
+                for f in os.listdir(subfolder_path)
+            )
+            # Or check for FOV folders in Analysed_Data or Analysed_Data2
+            for analysed in ["Analysed_Data", "Analysed_Data2"]:
+                analysed_path = os.path.join(subfolder_path, analysed)
+                if os.path.isdir(analysed_path):
+                    has_fov = has_fov or any(
+                        os.path.isdir(os.path.join(analysed_path, f))
+                        and f.startswith("FOV_")
+                        for f in os.listdir(analysed_path)
+                    )
+            if has_fov:
+                result.append(subfolder_path)
     except (OSError, PermissionError) as e:
         print(f"Error accessing directory {directory}: {e}")
     return result
@@ -83,10 +119,10 @@ def find_subfolders_with_analysed_data(directory):
 def sort_key(s):
     """
     Custom sorting key for FOV names.
-    
+
     Args:
         s (str): FOV name (e.g., "FOV_1", "FOV_10")
-        
+
     Returns:
         int: Sorting key (-1 for FOV_0, otherwise the numeric part)
     """
@@ -95,36 +131,94 @@ def sort_key(s):
     try:
         return int(s.split("_")[1])
     except (IndexError, ValueError):
-        return float('inf')  # Put invalid names at the end
+        return float("inf")  # Put invalid names at the end
 
 
 def find_fov_choices(project_path):
     """
-    Find all FOV (Field of View) folders for a given project.
-    
-    Args:
-        project_path (str): Path to the project directory
-        
-    Returns:
-        list: Sorted list of FOV names
+    Find all FOV (Field of View) folders for a given project, searching in:
+    - experiment/FOV_*
+    - experiment/Analysed_Data/FOV_*
+    - experiment/Analysed_Data2/FOV_*
+    If ANALYSED_DATA_PATH is set, only search there.
     """
+    if ANALYSED_DATA_PATH and os.path.isdir(ANALYSED_DATA_PATH):
+        try:
+            fovs = [
+                f
+                for f in os.listdir(ANALYSED_DATA_PATH)
+                if os.path.isdir(os.path.join(ANALYSED_DATA_PATH, f))
+                and f.startswith("FOV_")
+            ]
+            return sorted(fovs, key=sort_key)
+        except Exception as e:
+            print(f"Error accessing FOVs in {ANALYSED_DATA_PATH}: {e}")
+            return []
+    # ...existing code for normal search...
     base_folder = os.path.join(BASE_PATH_STEM_CELL, project_path)
+    fov_dirs = []
     try:
-        fovs = [
-            os.path.basename(f)
-            for f in os.listdir(base_folder)
-            if os.path.isdir(os.path.join(base_folder, f)) and f.startswith("FOV_")
-        ]
-        fovs = sorted(fovs, key=sort_key)
+        if os.path.isdir(base_folder):
+            fov_dirs.extend(
+                f
+                for f in os.listdir(base_folder)
+                if os.path.isdir(os.path.join(base_folder, f)) and f.startswith("FOV_")
+            )
+        for analysed in ["Analysed_Data", "Analysed_Data2"]:
+            analysed_path = os.path.join(base_folder, analysed)
+            if os.path.isdir(analysed_path):
+                fov_dirs.extend(
+                    f
+                    for f in os.listdir(analysed_path)
+                    if os.path.isdir(os.path.join(analysed_path, f))
+                    and f.startswith("FOV_")
+                )
+        fovs = sorted(set(fov_dirs), key=sort_key)
         return fovs
     except (OSError, PermissionError) as e:
         print(f"Error accessing FOV directory {base_folder}: {e}")
         return []
 
 
+def get_fov_folder(project, fov):
+    """
+    Return the full path to the FOV folder, searching in:
+    - experiment/FOV_*
+    - experiment/Analysed_Data/FOV_*
+    - experiment/Analysed_Data2/FOV_*
+    If ANALYSED_DATA_PATH is set, only search there.
+    """
+    if ANALYSED_DATA_PATH and os.path.isdir(ANALYSED_DATA_PATH):
+        direct_path = os.path.join(ANALYSED_DATA_PATH, fov)
+        if os.path.isdir(direct_path):
+            return direct_path
+        return None
+    # ...existing code for normal search...
+    base_folder = os.path.join(BASE_PATH_STEM_CELL, project)
+    direct_path = os.path.join(base_folder, fov)
+    if os.path.isdir(direct_path):
+        return direct_path
+    for analysed in ["Analysed_Data", "Analysed_Data_2"]:
+        analysed_path = os.path.join(base_folder, analysed, fov)
+        if os.path.isdir(analysed_path):
+            return analysed_path
+    return None
+
+
 # Initialize data folders and FOV choices
-data_folders = find_subfolders_with_analysed_data(BASE_PATH_STEM_CELL)
-data_folder_names = [os.path.basename(folder) for folder in data_folders]
+if ANALYSED_DATA_PATH and os.path.isdir(ANALYSED_DATA_PATH):
+    data_folders = [ANALYSED_DATA_PATH]
+    # Set the project name to the experiment (parent of Analysed_Data folder)
+    data_folder_names = [os.path.basename(os.path.dirname(ANALYSED_DATA_PATH))]
+else:
+    if DEFAULT_EXPERIMENT and os.path.isdir(
+        os.path.join(BASE_PATH_STEM_CELL, DEFAULT_EXPERIMENT)
+    ):
+        data_folders = [os.path.join(BASE_PATH_STEM_CELL, DEFAULT_EXPERIMENT)]
+    else:
+        data_folders = find_subfolders_with_analysed_data(BASE_PATH_STEM_CELL)
+    data_folder_names = [os.path.basename(folder) for folder in data_folders]
+
 
 # --- Optionally add extra data folders from a text file ---
 def get_extra_folders_file():
@@ -148,11 +242,17 @@ if EXTRA_DATA_FOLDERS_FILE and os.path.exists(EXTRA_DATA_FOLDERS_FILE):
             if not folder:
                 continue
             # Accept both absolute and relative paths
-            folder_path = folder if os.path.isabs(folder) else os.path.join(BASE_PATH_STEM_CELL, folder)
+            folder_path = (
+                folder
+                if os.path.isabs(folder)
+                else os.path.join(BASE_PATH_STEM_CELL, folder)
+            )
             if os.path.isdir(folder_path) and folder_path not in data_folders:
                 extra_data_folders.append(folder_path)
             elif not os.path.isdir(folder_path):
-                print(f"Warning: Extra data folder does not exist or is not a directory: {folder_path}")
+                print(
+                    f"Warning: Extra data folder does not exist or is not a directory: {folder_path}"
+                )
 # Merge extra folders (if any) with found folders
 if extra_data_folders:
     data_folders.extend(extra_data_folders)
@@ -202,7 +302,7 @@ def load_data_widget(
 ):
     """
     Main widget function for loading OME-Zarr data and labels into Napari.
-    
+
     Args:
         project (str): Selected project name
         fov (str): Selected FOV name
@@ -211,51 +311,56 @@ def load_data_widget(
         load_tracking_data_button (bool): Flag for loading tracking data button (unused in function body)
     """
     global current_fov, project_c
-    
+
     # Update global state
     current_fov = fov
     project_c = project
-    
+
     # Clear existing layers
     viewer.layers.clear()
-    
-    # Construct path to OME-Zarr data
-    url = os.path.join(BASE_PATH_STEM_CELL, project, fov)
-    
+
+    # Find the FOV folder (experiment/FOV_* or experiment/Analysed_Data/FOV_* or experiment/Analysed_Data2/FOV_*)
+    url = get_fov_folder(project, fov)
+    if url is None:
+        print(f"Error: Could not find FOV folder for {project} {fov}")
+        return
+
     # Check if the path exists before trying to load
     if not os.path.exists(url):
         print(f"Error: Path does not exist: {url}")
         return
-    
+
     if not os.path.isdir(url):
         print(f"Error: Path is not a directory: {url}")
         return
-    
+
     try:
         # Load OME-Zarr data
         print(f"Attempting to load OME-Zarr data from: {url}")
-        
+
         # Check if this looks like a valid OME-Zarr directory
-        zarr_files = [f for f in os.listdir(url) if f.startswith('.z')]
+        zarr_files = [f for f in os.listdir(url) if f.startswith(".z")]
         print(f"Zarr files found: {zarr_files}")
-        
-        if not any(f in zarr_files for f in ['.zattrs', '.zgroup']):
+
+        if not any(f in zarr_files for f in [".zattrs", ".zgroup"]):
             print(f"Warning: No .zattrs or .zgroup files found in {url}")
-            print(f"Directory contents: {os.listdir(url)[:10]}...")  # Show first 10 items
-        
+            print(
+                f"Directory contents: {os.listdir(url)[:10]}..."
+            )  # Show first 10 items
+
         parsed_url = parse_url(url)
         if parsed_url is None:
             print(f"Error: parse_url returned None for {url}")
             print("This directory does not appear to contain valid OME-Zarr data.")
             return
-        
+
         reader = Reader(parsed_url)
         nodes = list(reader())
-        
+
         if not nodes:
             print(f"No data found in {url}")
             return
-        
+
         # Add image data (first node contains raw images)
         channel_axis = next(
             (
@@ -265,40 +370,52 @@ def load_data_widget(
             ),
             None,
         )
-        
+
         viewer.add_image(
             nodes[0].data,
             channel_axis=channel_axis,
-            name=nodes[0].metadata["channel_names"],
+            name=(
+                nodes[0].metadata["channel_names"]
+                if "channel_names" in nodes[0].metadata
+                else (
+                    nodes[0].metadata["channel"]
+                    if "channel" in nodes[0].metadata
+                    else None
+                )
+            ),
             contrast_limits=nodes[0].metadata["contrast_limits"],
             visible=False,
         )
-        
+
         # Add label data (subsequent nodes contain labels)
         print("Loading labels...")
         labels = nodes[1].zarr.root_attrs["labels"]
-        
+
         for i in range(2, len(nodes)):
             try:
                 # Check if this is a grayscale label or categorical label
-                is_grayscale = nodes[i].zarr.root_attrs["multiscales"][0]["metadata"].get("is_grayscale_label", False)
+                is_grayscale = (
+                    nodes[i]
+                    .zarr.root_attrs["multiscales"][0]["metadata"]
+                    .get("is_grayscale_label", False)
+                )
                 label_name = labels[i - 2]
-                
+
                 if is_grayscale:
                     viewer.add_image(nodes[i].data, name=label_name, visible=False)
                 else:
                     viewer.add_labels(nodes[i].data, name=label_name, visible=False)
             except Exception as e:
                 print(f"Error loading label {i-2}: {e}")
-        
+
         # Check if tracking data is available
         graph_pattern = os.path.join(BASE_PATH_STEM_CELL, project, f"{fov}_graph_*.xz")
         has_graph = bool(glob.glob(graph_pattern))
         load_data_widget.load_tracking_data_button.visible = has_graph
-        
+
         # Reset viewer to first timepoint
         viewer.dims.set_current_step(0, 0)
-        
+
     except Exception as e:
         print(f"Error loading data from {url}: {e}")
 
@@ -307,23 +424,23 @@ def load_data_widget(
 def load_tracking_data(value):
     """
     Load and display cell tracking data as tracks in Napari.
-    
+
     Args:
         value: Widget value (unused)
     """
     graph_file_path = os.path.join(
         BASE_PATH_STEM_CELL, project_c, f"{current_fov}_graph_2.xz"
     )
-    
+
     if not os.path.exists(graph_file_path):
         print(f"Graph file not found: {graph_file_path}")
         return
-        
+
     try:
         # Load tracking graph
         with lzma.open(graph_file_path, "rb") as f:
             graph = pickle.load(f)
-        
+
         # Load tracking DataFrame
         tracks_df = pd.read_pickle(
             os.path.join(
@@ -333,7 +450,7 @@ def load_tracking_data(value):
             ),
             compression="xz",
         )
-        
+
         # Clip distance values to remove outliers
         if "distance" in tracks_df.columns:
             upper_q = tracks_df["distance"].quantile(UPPER_QUANTILE)
@@ -345,14 +462,14 @@ def load_tracking_data(value):
             features = {"distance": distance}
         else:
             features = {}
-        
+
         # Add tracks to viewer
         viewer.add_tracks(
             tracks_df[["track_id", "t", "y", "x"]].values,
             graph=graph,
             features=features,
         )
-        
+
     except Exception as e:
         print(f"Error loading tracking data: {e}")
 
@@ -361,19 +478,19 @@ def load_tracking_data(value):
 def set_next(_):
     """
     Navigate to the next FOV in the list.
-    
+
     Args:
         _: Widget value (unused)
     """
     fov_choices = find_fov_choices(project_c)
-    
+
     if current_fov in fov_choices:
         current_index = fov_choices.index(current_fov)
         if current_index < len(fov_choices) - 1:
             load_data_widget.fov.value = fov_choices[current_index + 1]
     elif current_fov is None and fov_choices:
         load_data_widget.fov.value = fov_choices[0]
-    
+
     # Trigger data loading
     load_data_widget.call_button.clicked.emit()
 
@@ -382,19 +499,19 @@ def set_next(_):
 def set_previous(_):
     """
     Navigate to the previous FOV in the list.
-    
+
     Args:
         _: Widget value (unused)
     """
     fov_choices = find_fov_choices(project_c)
-    
+
     if current_fov in fov_choices:
         current_index = fov_choices.index(current_fov)
         if current_index > 0:
             load_data_widget.fov.value = fov_choices[current_index - 1]
     elif current_fov is None and fov_choices:
         load_data_widget.fov.value = fov_choices[0]
-    
+
     # Trigger data loading
     load_data_widget.call_button.clicked.emit()
 
@@ -403,7 +520,7 @@ def set_previous(_):
 def on_project_change(_=None):
     """
     Update FOV choices when project selection changes.
-    
+
     Args:
         _: Event parameter (unused)
     """

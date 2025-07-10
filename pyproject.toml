@@ -3,11 +3,11 @@ name = "cellzarr"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.10, <=3.11"
+requires-python = ">=3.11, <=3.12"
 dependencies = [
     "pandas",
     "scipy",
-    "nd2", 
+    "nd2",
     "scikit-image",
     "matplotlib",
     "tifffile",
@@ -17,20 +17,25 @@ dependencies = [
     "natsort",
     "trackpy",
     "edt",
-    "napari",
-    "PySide2",
-    "qtpy",
     "magicgui",
     "ipykernel",
     "jupyterlab",
     "ipywidgets",
     "distributed",
     "dask-jobqueue",
-    "ultrack",
-    "stardist",
+    "bokeh",
     "pyarrow",
+
+]
+
+[project.optional-dependencies]
+colony_seg = [
+    "napari-convpaint",
+    "napari >=0.6.0",
+]
+stardist_seg = [
+    "stardist",
     "csbdeep",
     "tensorflow-cpu",
-    "numpy<2.0",
-    "tensorflow-io-gcs-filesystem == 0.31.0"
-]
+    "numpy < 2.0.0"
+    ]
