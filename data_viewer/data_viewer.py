@@ -1,11 +1,13 @@
 # /// script
 # dependencies = [
-#   "napari[all]",
+#   "napari",
 #   "pandas",
 #   "magicgui",
 #   "ome-zarr",
+#   "qtpy",
+#   "PyQt5",
 # ]
-# python = "3.12"
+# python = "3.11"
 # ///
 """
 Napari Data Viewer for Stem Cell Project OME-Zarr Data
@@ -33,7 +35,6 @@ import pandas as pd
 from magicgui import magicgui
 from ome_zarr.io import parse_url
 from ome_zarr.reader import Reader
-from qtpy.QtWidgets import QLabel, QSizePolicy
 
 # Configuration constants
 UPPER_QUANTILE = 0.95  # Upper quantile for distance clipping
@@ -41,79 +42,122 @@ LOWER_QUANTILE = 0.05  # Lower quantile for distance clipping
 
 
 # --- Parse command-line arguments for base path ---
-def get_base_path_and_experiment():
+def get_base_path():
     parser = argparse.ArgumentParser(
         description="Napari Data Viewer for Stem Cell Project OME-Zarr Data"
     )
     parser.add_argument(
         "base_path",
-        type=str,
         nargs="?",
-        default=".",
-        help="Base path to the stem cell project data (default: current directory)",
-    )
-    parser.add_argument(
-        "--data_analysed",
         type=str,
-        default=None,
-        help="Direct path to Analysed_Data or Analysed_Data2 folder containing FOVs. Overrides base_path if set.",
+        default=".",
+        help="Base path to the stem cell project data or specific experiment folder",
     )
     args, _ = parser.parse_known_args()
-    if args.data_analysed:
-        analysed_path = os.path.abspath(args.data_analysed)
-        experiment = os.path.basename(os.path.dirname(analysed_path))
-        return (
-            os.path.dirname(os.path.dirname(analysed_path)),
-            experiment,
-            analysed_path,
-        )
-    else:
-        base_path = os.path.abspath(args.base_path)
-        experiment = os.path.basename(base_path)
-        parent_path = os.path.dirname(base_path)
-        return parent_path, experiment, None
+    return os.path.abspath(args.base_path)
 
 
-BASE_PATH_STEM_CELL, DEFAULT_EXPERIMENT, ANALYSED_DATA_PATH = (
-    get_base_path_and_experiment()
-)
+BASE_PATH_STEM_CELL = get_base_path()
 
 
 def find_subfolders_with_analysed_data(directory):
     """
-    Find all experiment folders that contain FOV folders directly or in Analysed_Data/Analysed_Data2.
+    Find all subfolders in the given directory that contain analyzed data.
+    Supports different folder structures:
+    1. topfolder/experiment/FOV_* (direct FOV folders)
+    2. topfolder/experiment/Analysed_Data*/FOV_* (FOV folders in Analysed_Data subfolder)
 
     Args:
         directory (str): Path to the directory to search
 
     Returns:
-        list: List of experiment folder paths that contain FOV data
+        dict: Dictionary with experiment names as keys and their base paths as values
     """
-    result = []
+    result = {}
+
+    # If the directory itself contains FOV folders, treat it as a single experiment
+    if contains_fov_folders(directory):
+        experiment_name = os.path.basename(directory)
+        result[experiment_name] = directory
+        return result
+
+    # Check if the directory contains only Analysed_Data* folders with FOV data
+    # This handles the case when pointing directly to an experiment folder
+    analysed_data_folders = []
+    other_folders_with_fovs = []
+
+    try:
+        for item in os.listdir(directory):
+            item_path = os.path.join(directory, item)
+            if not os.path.isdir(item_path):
+                continue
+
+            if item.startswith("Analysed_Data") and contains_fov_folders(item_path):
+                analysed_data_folders.append((item, item_path))
+            elif contains_fov_folders(item_path) and not item.startswith("tracking"):
+                other_folders_with_fovs.append((item, item_path))
+
+        # If we found Analysed_Data folders, use only those
+        if analysed_data_folders:
+            experiment_name = os.path.basename(directory)
+            # Use the first Analysed_Data folder found
+            result[experiment_name] = analysed_data_folders[0][1]
+            return result
+
+        # If no Analysed_Data folders but other folders with FOVs, treat as experiments
+        if other_folders_with_fovs:
+            for folder_name, folder_path in other_folders_with_fovs:
+                result[folder_name] = folder_path
+            return result
+
+    except (OSError, PermissionError) as e:
+        print(f"Error accessing directory {directory}: {e}")
+        return result
+
+    # If we reach here, treat subfolders as separate experiments (topfolder scenario)
     try:
         for subfolder in os.listdir(directory):
             subfolder_path = os.path.join(directory, subfolder)
             if not os.path.isdir(subfolder_path):
                 continue
-            # Check for FOV folders directly in experiment
-            has_fov = any(
-                os.path.isdir(os.path.join(subfolder_path, f)) and f.startswith("FOV_")
-                for f in os.listdir(subfolder_path)
-            )
-            # Or check for FOV folders in Analysed_Data or Analysed_Data2
-            for analysed in ["Analysed_Data", "Analysed_Data2"]:
-                analysed_path = os.path.join(subfolder_path, analysed)
-                if os.path.isdir(analysed_path):
-                    has_fov = has_fov or any(
-                        os.path.isdir(os.path.join(analysed_path, f))
-                        and f.startswith("FOV_")
-                        for f in os.listdir(analysed_path)
-                    )
-            if has_fov:
-                result.append(subfolder_path)
+
+            # Check if this experiment folder directly contains FOV folders
+            if contains_fov_folders(subfolder_path):
+                result[subfolder] = subfolder_path
+            else:
+                # Only check for Analysed_Data* subfolders, ignore all other folders (including tracking)
+                for item in os.listdir(subfolder_path):
+                    item_path = os.path.join(subfolder_path, item)
+                    if (
+                        os.path.isdir(item_path)
+                        and item.startswith("Analysed_Data")
+                        and contains_fov_folders(item_path)
+                    ):
+                        result[subfolder] = item_path
+                        break
+
     except (OSError, PermissionError) as e:
         print(f"Error accessing directory {directory}: {e}")
     return result
+
+
+def contains_fov_folders(directory):
+    """
+    Check if a directory contains FOV folders.
+
+    Args:
+        directory (str): Path to check
+
+    Returns:
+        bool: True if directory contains FOV folders
+    """
+    try:
+        for item in os.listdir(directory):
+            if os.path.isdir(os.path.join(directory, item)) and item.startswith("FOV_"):
+                return True
+    except (OSError, PermissionError):
+        pass
+    return False
 
 
 def sort_key(s):
@@ -134,90 +178,38 @@ def sort_key(s):
         return float("inf")  # Put invalid names at the end
 
 
-def find_fov_choices(project_path):
+def find_fov_choices(experiment_name):
     """
-    Find all FOV (Field of View) folders for a given project, searching in:
-    - experiment/FOV_*
-    - experiment/Analysed_Data/FOV_*
-    - experiment/Analysed_Data2/FOV_*
-    If ANALYSED_DATA_PATH is set, only search there.
+    Find all FOV (Field of View) folders for a given experiment.
+
+    Args:
+        experiment_name (str): Name of the experiment
+
+    Returns:
+        list: Sorted list of FOV names
     """
-    if ANALYSED_DATA_PATH and os.path.isdir(ANALYSED_DATA_PATH):
-        try:
-            fovs = [
-                f
-                for f in os.listdir(ANALYSED_DATA_PATH)
-                if os.path.isdir(os.path.join(ANALYSED_DATA_PATH, f))
-                and f.startswith("FOV_")
-            ]
-            return sorted(fovs, key=sort_key)
-        except Exception as e:
-            print(f"Error accessing FOVs in {ANALYSED_DATA_PATH}: {e}")
-            return []
-    # ...existing code for normal search...
-    base_folder = os.path.join(BASE_PATH_STEM_CELL, project_path)
-    fov_dirs = []
+    # Get the base path for this experiment
+    base_folder = experiment_paths.get(experiment_name)
+    if not base_folder:
+        return []
+
     try:
-        if os.path.isdir(base_folder):
-            fov_dirs.extend(
-                f
-                for f in os.listdir(base_folder)
-                if os.path.isdir(os.path.join(base_folder, f)) and f.startswith("FOV_")
-            )
-        for analysed in ["Analysed_Data", "Analysed_Data2"]:
-            analysed_path = os.path.join(base_folder, analysed)
-            if os.path.isdir(analysed_path):
-                fov_dirs.extend(
-                    f
-                    for f in os.listdir(analysed_path)
-                    if os.path.isdir(os.path.join(analysed_path, f))
-                    and f.startswith("FOV_")
-                )
-        fovs = sorted(set(fov_dirs), key=sort_key)
+        fovs = [
+            os.path.basename(f)
+            for f in os.listdir(base_folder)
+            if os.path.isdir(os.path.join(base_folder, f)) and f.startswith("FOV_")
+        ]
+        fovs = sorted(fovs, key=sort_key)
         return fovs
     except (OSError, PermissionError) as e:
         print(f"Error accessing FOV directory {base_folder}: {e}")
         return []
 
 
-def get_fov_folder(project, fov):
-    """
-    Return the full path to the FOV folder, searching in:
-    - experiment/FOV_*
-    - experiment/Analysed_Data/FOV_*
-    - experiment/Analysed_Data2/FOV_*
-    If ANALYSED_DATA_PATH is set, only search there.
-    """
-    if ANALYSED_DATA_PATH and os.path.isdir(ANALYSED_DATA_PATH):
-        direct_path = os.path.join(ANALYSED_DATA_PATH, fov)
-        if os.path.isdir(direct_path):
-            return direct_path
-        return None
-    # ...existing code for normal search...
-    base_folder = os.path.join(BASE_PATH_STEM_CELL, project)
-    direct_path = os.path.join(base_folder, fov)
-    if os.path.isdir(direct_path):
-        return direct_path
-    for analysed in ["Analysed_Data", "Analysed_Data_2"]:
-        analysed_path = os.path.join(base_folder, analysed, fov)
-        if os.path.isdir(analysed_path):
-            return analysed_path
-    return None
-
-
 # Initialize data folders and FOV choices
-if ANALYSED_DATA_PATH and os.path.isdir(ANALYSED_DATA_PATH):
-    data_folders = [ANALYSED_DATA_PATH]
-    # Set the project name to the experiment (parent of Analysed_Data folder)
-    data_folder_names = [os.path.basename(os.path.dirname(ANALYSED_DATA_PATH))]
-else:
-    if DEFAULT_EXPERIMENT and os.path.isdir(
-        os.path.join(BASE_PATH_STEM_CELL, DEFAULT_EXPERIMENT)
-    ):
-        data_folders = [os.path.join(BASE_PATH_STEM_CELL, DEFAULT_EXPERIMENT)]
-    else:
-        data_folders = find_subfolders_with_analysed_data(BASE_PATH_STEM_CELL)
-    data_folder_names = [os.path.basename(folder) for folder in data_folders]
+experiment_data = find_subfolders_with_analysed_data(BASE_PATH_STEM_CELL)
+experiment_names = list(experiment_data.keys())
+experiment_paths = experiment_data
 
 
 # --- Optionally add extra data folders from a text file ---
@@ -234,7 +226,7 @@ def get_extra_folders_file():
 
 
 EXTRA_DATA_FOLDERS_FILE = get_extra_folders_file()
-extra_data_folders = []
+extra_data_folders = {}
 if EXTRA_DATA_FOLDERS_FILE and os.path.exists(EXTRA_DATA_FOLDERS_FILE):
     with open(EXTRA_DATA_FOLDERS_FILE, "r", encoding="utf-8") as f:
         for line in f:
@@ -247,41 +239,47 @@ if EXTRA_DATA_FOLDERS_FILE and os.path.exists(EXTRA_DATA_FOLDERS_FILE):
                 if os.path.isabs(folder)
                 else os.path.join(BASE_PATH_STEM_CELL, folder)
             )
-            if os.path.isdir(folder_path) and folder_path not in data_folders:
-                extra_data_folders.append(folder_path)
+            if os.path.isdir(folder_path):
+                folder_name = os.path.basename(folder_path)
+                if folder_name not in experiment_paths:
+                    extra_data_folders[folder_name] = folder_path
             elif not os.path.isdir(folder_path):
                 print(
                     f"Warning: Extra data folder does not exist or is not a directory: {folder_path}"
                 )
+
 # Merge extra folders (if any) with found folders
 if extra_data_folders:
-    data_folders.extend(extra_data_folders)
-    # Remove duplicates
-    data_folders = list(dict.fromkeys(data_folders))
-# Update data_folder_names after merging
-data_folder_names = [os.path.basename(folder) for folder in data_folders]
+    experiment_paths.update(extra_data_folders)
+    experiment_names = list(experiment_paths.keys())
 
 # Handle case where no data folders are found
-if not data_folder_names:
-    data_folder_names = ["No data found"]
+if not experiment_names:
+    experiment_names = ["No data found"]
     print("No data folders found.")
     exit(1)
 
+print(f"Found experiments: {experiment_names}")
+print(f"Base path: {BASE_PATH_STEM_CELL}")
+for exp_name, exp_path in experiment_paths.items():
+    fov_count = len(find_fov_choices(exp_name))
+    print(f"  {exp_name}: {exp_path} ({fov_count} FOVs)")
+
 # Initialize current FOV selection
-current_fovs = find_fov_choices(data_folder_names[0]) if data_folder_names else []
+current_fovs = find_fov_choices(experiment_names[0]) if experiment_names else []
 current_fov = current_fovs[0] if current_fovs else None
-project_c = data_folder_names[0] if data_folder_names else None
+project_c = experiment_names[0] if experiment_names else None
 
 
 @magicgui(
     project={
         "label": "Project: ",
-        "choices": data_folder_names,
-        "value": data_folder_names[0] if data_folder_names else None,
+        "choices": experiment_names,
+        "value": experiment_names[0] if experiment_names else None,
     },
     fov={
         "label": "Position: ",
-        "choices": find_fov_choices(data_folder_names[0]) if data_folder_names else [],
+        "choices": find_fov_choices(experiment_names[0]) if experiment_names else [],
         "value": current_fov,
     },
     next_fov={"widget_type": "PushButton", "label": "Next FOV ->"},
@@ -319,11 +317,13 @@ def load_data_widget(
     # Clear existing layers
     viewer.layers.clear()
 
-    # Find the FOV folder (experiment/FOV_* or experiment/Analysed_Data/FOV_* or experiment/Analysed_Data2/FOV_*)
-    url = get_fov_folder(project, fov)
-    if url is None:
-        print(f"Error: Could not find FOV folder for {project} {fov}")
+    # Construct path to OME-Zarr data
+    experiment_path = experiment_paths.get(project)
+    if not experiment_path:
+        print(f"Error: No path found for experiment: {project}")
         return
+
+    url = os.path.join(experiment_path, fov)
 
     # Check if the path exists before trying to load
     if not os.path.exists(url):
@@ -374,15 +374,7 @@ def load_data_widget(
         viewer.add_image(
             nodes[0].data,
             channel_axis=channel_axis,
-            name=(
-                nodes[0].metadata["channel_names"]
-                if "channel_names" in nodes[0].metadata
-                else (
-                    nodes[0].metadata["channel"]
-                    if "channel" in nodes[0].metadata
-                    else None
-                )
-            ),
+            name=nodes[0].metadata["channel_names"],
             contrast_limits=nodes[0].metadata["contrast_limits"],
             visible=False,
         )
@@ -409,7 +401,8 @@ def load_data_widget(
                 print(f"Error loading label {i-2}: {e}")
 
         # Check if tracking data is available
-        graph_pattern = os.path.join(BASE_PATH_STEM_CELL, project, f"{fov}_graph_*.xz")
+        experiment_path = experiment_paths.get(project)
+        graph_pattern = os.path.join(experiment_path, f"{fov}_graph_*.xz")
         has_graph = bool(glob.glob(graph_pattern))
         load_data_widget.load_tracking_data_button.visible = has_graph
 
@@ -428,9 +421,12 @@ def load_tracking_data(value):
     Args:
         value: Widget value (unused)
     """
-    graph_file_path = os.path.join(
-        BASE_PATH_STEM_CELL, project_c, f"{current_fov}_graph_2.xz"
-    )
+    experiment_path = experiment_paths.get(project_c)
+    if not experiment_path:
+        print(f"Error: No path found for experiment: {project_c}")
+        return
+
+    graph_file_path = os.path.join(experiment_path, f"{current_fov}_graph_2.xz")
 
     if not os.path.exists(graph_file_path):
         print(f"Graph file not found: {graph_file_path}")
@@ -444,8 +440,7 @@ def load_tracking_data(value):
         # Load tracking DataFrame
         tracks_df = pd.read_pickle(
             os.path.join(
-                BASE_PATH_STEM_CELL,
-                project_c,
+                experiment_path,
                 f"{current_fov}_df_tracks_2.xz",
             ),
             compression="xz",

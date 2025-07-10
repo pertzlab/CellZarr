@@ -12,21 +12,45 @@ This is a specialized Napari-based viewer for visualizing OME-Zarr microscopy da
 
 ## Data Structure
 
-The viewer expects experimental data to be organized in the following structure:
+The viewer supports flexible data organization and can automatically detect different folder structures:
 
+### Structure 1: Direct FOV folders in experiment
+```
+experiment_folder/
+├── FOV_0/          # OME-Zarr data for field of view 0
+├── FOV_1/          # OME-Zarr data for field of view 1
+├── FOV_2/
+├── FOV_1_graph_*.xz    # Optional tracking data for FOV 1
+├── FOV_1_df_tracks_*.xz # Optional tracking data for FOV 1
+└── ...
+```
+
+### Structure 2: FOV folders in Analysed_Data subfolder
+```
+experiment_folder/
+├── Analysed_Data/    # or Analysed_Data_1, etc.
+│   ├── FOV_0/          # OME-Zarr data for field of view 0
+│   ├── FOV_1/          # OME-Zarr data for field of view 1
+│   ├── FOV_1_graph_*.xz    # Optional tracking data for FOV 1
+│   ├── FOV_1_df_tracks_*.xz # Optional tracking data for FOV 1
+│   └── ...
+├── tracking/           # This folder is ignored
+└── other_folders/      # Other folders are ignored
+```
+
+### Structure 3: Multiple experiments in top folder
 ```
 data_directory/
 ├── experiment1/
 │   ├── FOV_0/          # OME-Zarr data for field of view 0
-    ├── FOV_1_graph_*.xz  # Optional tracking data for FOV 1
-    ├── FOV_1_df_tracks_*.xz  # Optional tracking data for FOV 1
 │   ├── FOV_1/          # OME-Zarr data for field of view 1
-│   ├── FOV_2/
 │   └── ...
 ├── experiment2/
-│   ├── FOV_0/
-│   ├── FOV_1/
-│   └── ...
+│   ├── Analysed_Data/
+│   │   ├── FOV_0/
+│   │   ├── FOV_1/
+│   │   └── ...
+│   └── tracking/       # This folder is ignored
 └── ...
 ```
 
@@ -55,25 +79,42 @@ python data_viewer.py
 
 ## Command Line Options
 
-The viewer supports several command-line options for customization:
+The viewer supports flexible command-line usage for different scenarios:
 
-### Base Path Configuration
+### Basic Usage
 ```bash
-# Run from current directory (default)
+# Run from current directory (searches for experiments in current folder)
 uv run data_viewer.py
 
-# Specify custom data directory
-uv run data_viewer.py --base-path /path/to/your/data
+# Point to a folder containing multiple experiments
+uv run data_viewer.py PATH_TO_EXPERIMENT_FOLDERS
+
+# Point directly to a specific experiment folder
+uv run data_viewer.py EXPERIMENT_FOLDER_WITH_FOVS
+```
+
+### Examples
+```bash
+# Load all experiments from a data directory
+uv run data_viewer.py /path/to/data/StemCellProject
+
+# Load a specific experiment directly
+uv run data_viewer.py /path/to/data/StemCellProject/20220517_starve21h_FGF20_200
+
+# Using Windows network paths
+uv run data_viewer.py "\\server\share\StemCellProject\experiment1"
+```
+
+### Advanced Options
+```bash
+# Use custom extra folders file
+uv run data_viewer.py --extra-folders-file /path/to/custom_folders.txt
 
 # Get help
 uv run data_viewer.py --help
 ```
 
 ### Extra Data Folders
-```bash
-# Use custom extra folders file
-uv run data_viewer.py --extra-folders-file /path/to/custom_folders.txt
-```
 
 By default, the viewer looks for an `extra_data_folders.txt` file in the same directory as the script. This file can contain additional data folder paths (one per line) to include experiments from different locations:
 
@@ -82,6 +123,12 @@ By default, the viewer looks for an `extra_data_folders.txt` file in the same di
 /path/to/another/location/experiment2
 ../relative/path/to/experiment3
 ```
+
+### Data Organization Notes
+
+- **Analysed_Data Priority**: When pointing to an experiment folder, only `Analysed_Data*` subfolders are considered, other folders (like `tracking`) are ignored
+- **Automatic Detection**: The viewer automatically detects the folder structure and adapts accordingly
+- **FOV Sorting**: FOV folders are sorted numerically (FOV_0, FOV_1, FOV_2, ..., FOV_10, etc.)
 
 ## GUI Interface
 

@@ -1,9 +1,5 @@
-napari
+napari[all]
+pandas
 magicgui
 ome-zarr
 pandas
-PyQt5
-numpy
-scikit-image
-tifffile
-zarr
