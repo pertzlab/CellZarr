@@ -44,7 +44,7 @@ The workflow is highly modular, making it straightforward to adapt to different 
 
    This command automatically creates a virtual environment (`.venv`) in your project directory and installs all required dependencies. This virtual environment can be used directly in VS Code for running the Jupyter notebooks.
 
-3. **Windows-specific PyQt5 fix** (required due to PyQt5 compatibility issues):
+3. **PyQt5 fix** (required due to PyQt5 compatibility issues):
    ```bash
    uv pip install pyqt5
    ```
@@ -69,7 +69,7 @@ uv pip install pyqt5  # Required on Windows
 uv sync
 ```
 
-**Virtual Environment Integration**: All `uv sync` commands automatically create and manage a virtual environment (`.venv`) in your project directory. VS Code will automatically detect this environment and can use it for running Jupyter notebooks and Python scripts. If VS Code doesn't automatically select the environment, you can manually select it by pressing `Ctrl+Shift+P`, typing "Python: Select Interpreter", and choosing the interpreter from the `.venv` folder.
+**Virtual Environment Integration**: All `uv sync` commands automatically create and manage a virtual environment (`.venv`) in your project directory. VS Code will automatically detect this environment and can use it for running Jupyter notebooks and Python scripts.
 
 ## Configuration
 
@@ -172,13 +172,18 @@ CellZarr/
 
 1. **Start with ND2 conversion**:
    ```bash
-   jupyter lab 01_ND2_to_OME-ZARR.ipynb
+   uv run jupyter lab 01_ND2_to_OME-ZARR.ipynb
    ```
 
 2. **Perform segmentation**:
+For cell colony segmentation:
    ```bash
-   jupyter lab 02_Colony_Segmentation.ipynb
-   jupyter lab 03_Nucleus_Segmentation.ipynb
+   uv run jupyter lab 02_Colony_Segmentation.ipynb
+   ```
+
+For nucleus segmentation:
+   ```bash
+   uv run jupyter lab 03_Nucleus_Segmentation.ipynb
    ```
 
 3. **Track cells**:
