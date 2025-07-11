@@ -33,7 +33,7 @@ The workflow is highly modular, making it straightforward to adapt to different 
 
 1. **Clone the repository**:
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/pertzlab/CellZarr
    cd CellZarr
    ```
 
