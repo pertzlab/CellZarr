@@ -1,9 +1,9 @@
 [project]
 name = "cellzarr"
 version = "0.1.0"
-description = "Add your description here"
+description = " CellZarr is a reproducible workflow for high-content analysis of live-cell timelapse imaging, processing raw ND2 files to quantitative features for scalable biological analysis. "
 readme = "README.md"
-requires-python = ">=3.11, <=3.12"
+requires-python = ">=3.11,<3.12"
 dependencies = [
     "pandas",
     "scipy",
@@ -36,6 +36,7 @@ colony_seg = [
 stardist_seg = [
     "stardist",
     "csbdeep",
-    "tensorflow-cpu",
+    "tensorflow",
+    "tensorflow_io_gcs_filesystem <= 0.31.0",
     "numpy < 2.0.0"
     ]

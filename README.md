@@ -69,6 +69,15 @@ uv pip install pyqt5  # Required on Windows
 uv sync
 ```
 
+#### Multiple extras can be installed together:
+```bash
+uv sync --extra stardist_seg --extra colony_seg
+```
+**Here you also need to run the PyQt5 fix**:
+```bash
+uv pip install pyqt5
+```
+
 **Virtual Environment Integration**: All `uv sync` commands automatically create and manage a virtual environment (`.venv`) in your project directory. VS Code will automatically detect this environment and can use it for running Jupyter notebooks and Python scripts.
 
 ## Configuration
