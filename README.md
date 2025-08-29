@@ -8,7 +8,7 @@ The workflow is designed to be highly modular and consists of the following main
 
 1. **ND2 to OME-Zarr conversion**: Convert raw ND2 microscopy files to the OME-Zarr format for scalable, cloud-ready storage and analysis.
 2. **Colony segmentation using ConvPaint**: Identify and segment stem cell colonies in the images using a deep learning-based approach.
-3. **Nucleus segmentation using StarDist**: Detect and segment individual nuclei within colonies for single-cell analysis.
+3. **Nucleus segmentation using StarDist / Cellpose**: Detect and segment individual nuclei within colonies for single-cell analysis.
 4. **Cell Tracking**: Track individual cells over time to study dynamic behaviors using ultrack.
 5. **Feature Extraction**: Quantify spatial features and extract relevant biological markers (e.g., ERK, Oct4) for each cell.
 
@@ -56,6 +56,16 @@ If you don't need all pipeline components, you can install only specific extras:
 #### For StarDist nucleus segmentation only:
 ```bash
 uv sync --extra stardist_seg
+```
+
+#### For Cellpose nucleus segmentation only:
+```bash
+uv sync --extra cellpose_seg_cpu
+```
+
+#### For Cellpose nucleus segmentation with Cuda (GPU) support:
+```bash
+uv sync --extra cellpose_seg_cuda128
 ```
 
 #### For ConvPaint colony segmentation only:

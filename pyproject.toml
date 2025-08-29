@@ -12,7 +12,7 @@ dependencies = [
     "matplotlib",
     "tifffile",
     "zarr",
-    "ome-zarr",
+    "ome-zarr <= v0.11.1",
     "dask",
     "natsort",
     "trackpy",
@@ -25,6 +25,7 @@ dependencies = [
     "dask-jobqueue",
     "bokeh",
     "pyarrow",
+    "tqdm",
 
 ]
 
