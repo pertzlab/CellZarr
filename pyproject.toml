@@ -40,3 +40,46 @@ stardist_seg = [
     "tensorflow_io_gcs_filesystem <= 0.31.0",
     "numpy < 2.0.0"
     ]
+
+
+cellpose_seg_cpu = [
+    "cellpose",
+    "numpy",
+    "torch>=2.7.0",
+    "torchvision>=0.22.0",
+]
+cellpose_seg_cuda128 = [
+    "cellpose",
+    "numpy",
+    "torch>=2.7.0",
+    "torchvision>=0.22.0",
+]
+
+
+[tool.uv]
+conflicts = [
+  [
+    { extra = "cellpose_seg_cpu" },
+    { extra = "cellpose_seg_cuda128" },
+  ],
+]
+
+[tool.uv.sources]
+torch = [
+  { index = "pytorch-cpu", extra = "cellpose_seg_cpu" },
+  { index = "pytorch-cu128", extra = "cellpose_seg_cuda128" },
+]
+torchvision = [
+  { index = "pytorch-cpu", extra = "cellpose_seg_cpu" },
+  { index = "pytorch-cu128", extra = "cellpose_seg_cuda128" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
