@@ -3,7 +3,7 @@
 #   "napari",
 #   "pandas",
 #   "magicgui",
-#   "ome-zarr",
+#   "ome-zarr <= v0.11.1",
 #   "qtpy",
 #   "PyQt5",
 # ]
