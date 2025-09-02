@@ -69,6 +69,8 @@ def main(fov_i: int):
         i_nucleus_label = labels_list.index("labels") + 2
     elif "nucleus" in labels_list:
         i_nucleus_label = labels_list.index("nucleus") + 2
+    elif "nucleus_cellpose" in labels_list:
+        i_nucleus_label = labels_list.index("nucleus_cellpose") + 2
     else:
         raise ValueError(
             f"FOV {fov_i} does not contain a 'labels' or 'nucleus' label. Available labels: {labels_list}"
