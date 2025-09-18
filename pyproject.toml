@@ -34,6 +34,10 @@ colony_seg = [
     "napari-convpaint",
     "napari >=0.6.0",
 ]
+trackastra = [
+    "trackastra",
+    ]
+
 stardist_seg = [
     "stardist",
     "csbdeep",
