@@ -34,9 +34,7 @@ colony_seg = [
     "napari-convpaint",
     "napari >=0.6.0",
 ]
-trackastra = [
-    "trackastra",
-    ]
+
 
 stardist_seg = [
     "stardist",
@@ -59,6 +57,16 @@ cellpose_seg_cuda128 = [
     "torch>=2.7.0",
     "torchvision>=0.22.0",
 ]
+
+trackastra = [
+    "trackastra",
+    "torch>=2.7.0",
+    "torchvision>=0.22.0",
+    "motile"
+     ]
+
+
+
 
 
 [tool.uv]
