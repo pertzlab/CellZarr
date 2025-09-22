@@ -35,10 +35,15 @@ import pandas as pd
 from magicgui import magicgui
 from ome_zarr.io import parse_url
 from ome_zarr.reader import Reader
+import numpy as np
 
 # Configuration constants
 UPPER_QUANTILE = 0.95  # Upper quantile for distance clipping
 LOWER_QUANTILE = 0.05  # Lower quantile for distance clipping
+CURRENT_TRACKING_VERSION = 0  # Current tracking version to load
+USED_TRACKING_TOOL = (
+    "trackastra"  # Tool used for tracking (currently either 'trackastra' or 'ultrack')
+)
 
 
 # --- Parse command-line arguments for base path ---
@@ -402,7 +407,9 @@ def load_data_widget(
 
         # Check if tracking data is available
         experiment_path = experiment_paths.get(project)
-        graph_pattern = os.path.join(experiment_path, f"{fov}_graph_*.xz")
+        graph_pattern = os.path.join(
+            experiment_path, f"{fov}_graph_{CURRENT_TRACKING_VERSION}.xz"
+        )
         has_graph = bool(glob.glob(graph_pattern))
         load_data_widget.load_tracking_data_button.visible = has_graph
 
@@ -426,7 +433,9 @@ def load_tracking_data(value):
         print(f"Error: No path found for experiment: {project_c}")
         return
 
-    graph_file_path = os.path.join(experiment_path, f"{current_fov}_graph_2.xz")
+    graph_file_path = os.path.join(
+        experiment_path, f"{current_fov}_graph_{CURRENT_TRACKING_VERSION}.xz"
+    )
 
     if not os.path.exists(graph_file_path):
         print(f"Graph file not found: {graph_file_path}")
@@ -441,29 +450,33 @@ def load_tracking_data(value):
         tracks_df = pd.read_pickle(
             os.path.join(
                 experiment_path,
-                f"{current_fov}_df_tracks_2.xz",
+                f"{current_fov}_df_tracks_{CURRENT_TRACKING_VERSION}.xz",
             ),
             compression="xz",
         )
 
-        # Clip distance values to remove outliers
-        if "distance" in tracks_df.columns:
-            upper_q = tracks_df["distance"].quantile(UPPER_QUANTILE)
-            lower_q = tracks_df["distance"].quantile(LOWER_QUANTILE)
-            tracks_df["distance_clip"] = tracks_df["distance"].clip(
-                lower=lower_q, upper=upper_q
-            )
-            distance = tracks_df["distance_clip"].values
-            features = {"distance": distance}
-        else:
-            features = {}
+        if type(tracks_df) is pd.DataFrame:
+            # Clip distance values to remove outliers
+            if "distance" in tracks_df.columns:
+                upper_q = tracks_df["distance"].quantile(UPPER_QUANTILE)
+                lower_q = tracks_df["distance"].quantile(LOWER_QUANTILE)
+                tracks_df["distance_clip"] = tracks_df["distance"].clip(
+                    lower=lower_q, upper=upper_q
+                )
+                distance = tracks_df["distance_clip"].values
+                features = {"distance": distance}
+            else:
+                features = {}
 
-        # Add tracks to viewer
-        viewer.add_tracks(
-            tracks_df[["track_id", "t", "y", "x"]].values,
-            graph=graph,
-            features=features,
-        )
+            # Add tracks to viewer
+            viewer.add_tracks(
+                tracks_df[["track_id", "t", "y", "x"]].values,
+                graph=graph,
+                features=features,
+            )
+        elif type(tracks_df) is np.ndarray:
+            # Handle case where tracks_df is a numpy array (trackastra)
+            viewer.add_tracks(tracks_df, graph=graph)
 
     except Exception as e:
         print(f"Error loading tracking data: {e}")

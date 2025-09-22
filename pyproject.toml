@@ -26,7 +26,6 @@ dependencies = [
     "bokeh",
     "pyarrow",
     "tqdm",
-
 ]
 
 [project.optional-dependencies]
@@ -58,33 +57,44 @@ cellpose_seg_cuda128 = [
     "torchvision>=0.22.0",
 ]
 
-trackastra = [
+trackastra_cpu = [
     "trackastra",
     "torch>=2.7.0",
     "torchvision>=0.22.0",
-    "motile"
+    "motile",
+    "gurobipy",
      ]
 
 
-
+trackastra_cuda128 = [
+    "trackastra",
+    "torch>=2.7.0",
+    "torchvision>=0.22.0",
+    "motile",
+    "gurobipy",
+     ]
 
 
 [tool.uv]
 conflicts = [
   [
     { extra = "cellpose_seg_cpu" },
-    { extra = "cellpose_seg_cuda128" },
+    { extra = "cellpose_seg_cuda128" }
   ],
+  [
+    {extra = "trackastra_cpu"},
+    {extra = "trackastra_cuda128"}
+  ]
 ]
 
 [tool.uv.sources]
 torch = [
-  { index = "pytorch-cpu", extra = "cellpose_seg_cpu" },
   { index = "pytorch-cu128", extra = "cellpose_seg_cuda128" },
+  { index = "pytorch-cu128", extra = "trackastra_cuda128" }
 ]
 torchvision = [
-  { index = "pytorch-cpu", extra = "cellpose_seg_cpu" },
   { index = "pytorch-cu128", extra = "cellpose_seg_cuda128" },
+  { index = "pytorch-cu128", extra = "trackastra_cuda128" }
 ]
 
 [[tool.uv.index]]
