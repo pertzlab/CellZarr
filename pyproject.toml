@@ -74,12 +74,30 @@ trackastra_cuda128 = [
     "gurobipy",
      ]
 
+aio_gpu = [
+    "cellpose",
+    "trackastra",
+    "torch>=2.7.0",
+    "torchvision>=0.22.0",
+    "motile",
+    "gurobipy",
+     ]
+
+aio_cpu = [
+    "cellpose",
+    "trackastra",
+    "torch>=2.7.0",
+    "torchvision>=0.22.0",
+    "motile",
+    "gurobipy",
+     ]
 
 [tool.uv]
 conflicts = [
   [
     { extra = "cellpose_seg_cpu" },
     { extra = "cellpose_seg_cuda128" }
+
   ],
   [
     {extra = "trackastra_cpu"},
@@ -90,11 +108,15 @@ conflicts = [
 [tool.uv.sources]
 torch = [
   { index = "pytorch-cu128", extra = "cellpose_seg_cuda128" },
-  { index = "pytorch-cu128", extra = "trackastra_cuda128" }
+  { index = "pytorch-cu128", extra = "trackastra_cuda128" },
+  { index = "pytorch-cu128", extra = "aio_gpu" }
+
 ]
 torchvision = [
   { index = "pytorch-cu128", extra = "cellpose_seg_cuda128" },
-  { index = "pytorch-cu128", extra = "trackastra_cuda128" }
+  { index = "pytorch-cu128", extra = "trackastra_cuda128" },
+  { index = "pytorch-cu128", extra = "aio_gpu" }
+
 ]
 
 [[tool.uv.index]]
