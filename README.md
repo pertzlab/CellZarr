@@ -9,7 +9,7 @@ The workflow is designed to be highly modular and consists of the following main
 1. **ND2 to OME-Zarr conversion**: Convert raw ND2 microscopy files to the OME-Zarr format for scalable, cloud-ready storage and analysis.
 2. **Colony segmentation using ConvPaint**: Identify and segment stem cell colonies in the images using a deep learning-based approach.
 3. **Nucleus segmentation using StarDist / Cellpose**: Detect and segment individual nuclei within colonies for single-cell analysis.
-4. **Cell Tracking**: Track individual cells over time to study dynamic behaviors using ultrack.
+4. **Cell Tracking**: Track individual cells over time to study dynamic behaviors using ultrack or trackastra.
 5. **Feature Extraction**: Quantify spatial features and extract relevant biological markers (e.g., ERK, Oct4) for each cell.
 
 The workflow is highly modular, making it straightforward to adapt to different datasets or analysis needs. Once the ND2 files have been converted to OME-Zarr, the subsequent steps can be performed independently, allowing you to skip or repeat steps as required for your analysis.
@@ -37,17 +37,22 @@ The workflow is highly modular, making it straightforward to adapt to different 
    cd CellZarr
    ```
 
-2. **Install all dependencies**:
+2. **Install all recommanded dependencies**:
    ```bash
-   uv sync --all-extras
+   uv sync --extra aio_gpu
    ```
 
-   This command automatically creates a virtual environment (`.venv`) in your project directory and installs all required dependencies. This virtual environment can be used directly in VS Code for running the Jupyter notebooks.
+   if you have a GPU with cuda 12.8.
+   or
 
-3. **PyQt5 fix** (required due to PyQt5 compatibility issues):
    ```bash
-   uv pip install pyqt5
+   uv sync --extra aio_cpu
    ```
+   if you are on a CPU system.
+
+   This command automatically creates a virtual environment (`.venv`) in your project directory and installs cellpose for segmentation, as well as trackastra for tracking.
+   This virtual environment can be used directly in VS Code for running the Jupyter notebooks.
+
 
 ### Selective Installation
 
@@ -63,9 +68,19 @@ uv sync --extra stardist_seg
 uv sync --extra cellpose_seg_cpu
 ```
 
-#### For Cellpose nucleus segmentation with Cuda (GPU) support:
+#### For Cellpose nucleus segmentation on GPU only:
 ```bash
 uv sync --extra cellpose_seg_cuda128
+```
+
+#### For trackastra segmentation on CPU only:
+```bash
+uv sync --extra trackastra_cpu
+```
+
+#### For Cellpose nucleus segmentation and trackastra tracking with Cuda (GPU) support:
+```bash
+uv sync --extra cellpose_seg_cuda128 --extra trackastra_cuda128
 ```
 
 #### For ConvPaint colony segmentation only:
@@ -83,10 +98,7 @@ uv sync
 ```bash
 uv sync --extra stardist_seg --extra colony_seg
 ```
-**Here you also need to run the PyQt5 fix**:
-```bash
-uv pip install pyqt5
-```
+If you are using ultrack for tracking, you do not need to use the `uv sync` commands (except for the base pipeline), as it will be executed using `uv run` that creates a temporary virtual environment.
 
 **Virtual Environment Integration**: All `uv sync` commands automatically create and manage a virtual environment (`.venv`) in your project directory. VS Code will automatically detect this environment and can use it for running Jupyter notebooks and Python scripts.
 
@@ -228,3 +240,4 @@ For nucleus segmentation:
 cd data_viewer
 uv run data_viewer.py /path/to/your/processed/data
 ```
+````

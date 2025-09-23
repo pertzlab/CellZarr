@@ -26,7 +26,6 @@ dependencies = [
     "bokeh",
     "pyarrow",
     "tqdm",
-
 ]
 
 [project.optional-dependencies]
@@ -34,6 +33,8 @@ colony_seg = [
     "napari-convpaint",
     "napari >=0.6.0",
 ]
+
+
 stardist_seg = [
     "stardist",
     "csbdeep",
@@ -56,23 +57,66 @@ cellpose_seg_cuda128 = [
     "torchvision>=0.22.0",
 ]
 
+trackastra_cpu = [
+    "trackastra",
+    "torch>=2.7.0",
+    "torchvision>=0.22.0",
+    "motile",
+    "gurobipy",
+     ]
+
+
+trackastra_cuda128 = [
+    "trackastra",
+    "torch>=2.7.0",
+    "torchvision>=0.22.0",
+    "motile",
+    "gurobipy",
+     ]
+
+aio_gpu = [
+    "cellpose",
+    "trackastra",
+    "torch>=2.7.0",
+    "torchvision>=0.22.0",
+    "motile",
+    "gurobipy",
+     ]
+
+aio_cpu = [
+    "cellpose",
+    "trackastra",
+    "torch>=2.7.0",
+    "torchvision>=0.22.0",
+    "motile",
+    "gurobipy",
+     ]
 
 [tool.uv]
 conflicts = [
   [
     { extra = "cellpose_seg_cpu" },
-    { extra = "cellpose_seg_cuda128" },
+    { extra = "cellpose_seg_cuda128" }
+
   ],
+  [
+    {extra = "trackastra_cpu"},
+    {extra = "trackastra_cuda128"}
+  ]
 ]
 
 [tool.uv.sources]
 torch = [
-  { index = "pytorch-cpu", extra = "cellpose_seg_cpu" },
   { index = "pytorch-cu128", extra = "cellpose_seg_cuda128" },
+  { index = "pytorch-cu128", extra = "trackastra_cuda128" },
+  { index = "pytorch-cu128", extra = "aio_gpu" }
+
 ]
 torchvision = [
-  { index = "pytorch-cpu", extra = "cellpose_seg_cpu" },
   { index = "pytorch-cu128", extra = "cellpose_seg_cuda128" },
+  { index = "pytorch-cu128", extra = "trackastra_cuda128" },
+  { index = "pytorch-cu128", extra = "aio_gpu" }
+
 ]
 
 [[tool.uv.index]]
